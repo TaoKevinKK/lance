@@ -188,7 +188,7 @@ impl LanceStream {
 
         for frag in &file_fragments {
             let id = frag.fragment.id();
-            info!("Reading FileFragment with ID: {}", id);
+            log::info!("Reading FileFragment with ID: {}", id);
         }
 
         if let Some(offsets) = offsets {
