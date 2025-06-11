@@ -186,6 +186,11 @@ impl LanceStream {
             })
             .collect::<Vec<_>>();
 
+        for frag in &file_fragments {
+            let id = frag.fragment.id();
+            info!("Reading FileFragment with ID: {}", id);
+        }
+
         if let Some(offsets) = offsets {
             let mut rows_to_skip = offsets.start;
             let mut rows_to_take = offsets.end - offsets.start;

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright The Lance Authors
+import os
 
+os.environ["LANCE_LOG"] = "debug"
 import random
 import shutil
 import string
@@ -157,6 +159,7 @@ def test_indexed_unindexed_fragments(tmp_tables, tmp_path):
 
 
 def test_dfs_query_then_fetch(tmp_tables, tmp_path):
+
     ds = lance.write_dataset(tmp_tables[0], tmp_path, mode="overwrite")
     ds = lance.write_dataset(tmp_tables[1], tmp_path, mode="append")
     ds = lance.write_dataset(tmp_tables[2], tmp_path, mode="append")
