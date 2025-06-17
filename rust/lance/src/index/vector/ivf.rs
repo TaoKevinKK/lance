@@ -282,7 +282,7 @@ pub(crate) async fn optimize_vector_indices(
 
     if options.retrain {
         warn!(
-            "optimizing vector index: retrain is only supported for v3 vector indices, falling back to normal optimization. please re-create the index with lance>=0.25.0 to enable retrain."
+            "optimizing vector index: retrain is only supported for v3 vector indices, falling back to normal optimization. please re-create the index with lance>=0.25.1 to enable retrain."
         );
     }
 

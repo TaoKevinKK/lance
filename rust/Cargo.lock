@@ -1669,7 +1669,7 @@ dependencies = [
  "datafusion-common",
  "paste",
  "sqlparser",
- "strum 0.25.0",
+ "strum 0.25.1",
  "strum_macros 0.25.2",
 ]
 
@@ -4610,7 +4610,7 @@ checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 
 [[package]]
 name = "strum"
-version = "0.25.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 dependencies = [
