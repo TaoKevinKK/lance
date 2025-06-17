@@ -186,10 +186,8 @@ impl LanceStream {
             })
             .collect::<Vec<_>>();
 
-        for frag in &file_fragments {
-            let id = frag.fragment.id();
-            log::info!("Reading FileFragment with ID: {}", id);
-        }
+        let fragment_ids: Vec<u32> = file_fragments.iter().map(|frag| frag.fragment.id() as u32).collect();
+        log::info!("PID: {} - Reading FileFragments with IDs: {:?}", std::process::id(), fragment_ids);
 
         if let Some(offsets) = offsets {
             let mut rows_to_skip = offsets.start;
