@@ -382,10 +382,9 @@ impl InnerBuilder {
 
     #[instrument(level = "debug", skip_all)]
     async fn write_docs(&mut self, store: &dyn IndexStore, docs: Arc<DocSet>) -> Result<()> {
-        let doc_file_path = doc_file_path(self.id);
-        log::info!("writing docs of partition {}, save to {}", self.id, doc_file_path);
         let batch = docs.to_batch()?;
         let doc_file_path = doc_file_path(self.id);
+        log::info!("writing docs of partition {}, save to {}", self.id, doc_file_path);
         let mut writer = store
             .new_index_file(&doc_file_path, batch.schema())
             .await?;
