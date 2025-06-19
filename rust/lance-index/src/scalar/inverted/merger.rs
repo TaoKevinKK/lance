@@ -77,11 +77,13 @@ impl Merger for SizeBasedMerger<'_> {
         if self.input.len() <= 1 || !self.enable_merge {
             log::info!("merging {} partitions without merging, enable_merge: {}", self.input.len(), self.enable_merge);
             for part in self.input.iter() {
+                let posting_path = posting_file_path(part.id());
+                log::info!("copying posting file: {}", posting_path);
                 part.store()
                     .copy_index_file(&token_file_path(part.id()), self.dest_store)
                     .await?;
                 part.store()
-                    .copy_index_file(&posting_file_path(part.id()), self.dest_store)
+                    .copy_index_file(&posting_path, self.dest_store)
                     .await?;
                 part.store()
                     .copy_index_file(&doc_file_path(part.id()), self.dest_store)

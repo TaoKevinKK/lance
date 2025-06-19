@@ -299,19 +299,21 @@ impl InnerBuilder {
         docs: Arc<DocSet>,
     ) -> Result<()> {
         let id = self.id;
+        let posting_file_path = posting_file_path(self.id);
         let mut writer = store
             .new_index_file(
-                &posting_file_path(self.id),
+                &posting_file_path,
                 inverted_list_schema(self.posting_lists[0].has_positions()),
             )
             .await?;
         let posting_lists = std::mem::take(&mut self.posting_lists);
 
         log::info!(
-            "writing {} posting lists of partition {}, with position {}",
+            "writing {} posting lists of partition {}, with position {}, save to {}",
             posting_lists.len(),
             id,
-            posting_lists[0].has_positions()
+            posting_lists[0].has_positions(),
+            posting_file_path
         );
         let schema = inverted_list_schema(posting_lists[0].has_positions());
 
@@ -362,12 +364,13 @@ impl InnerBuilder {
 
     #[instrument(level = "debug", skip_all)]
     async fn write_tokens(&mut self, store: &dyn IndexStore) -> Result<()> {
-        log::info!("writing tokens of partition {}", self.id);
         let tokens = std::mem::take(&mut self.tokens);
         let batch = tokens.to_batch()?;
+        let token_file_path = token_file_path(self.id);
         let mut writer = store
-            .new_index_file(&token_file_path(self.id), batch.schema())
+            .new_index_file(&token_file_path, batch.schema())
             .await?;
+        log::info!("writing tokens of partition {}, save to {}", self.id, token_file_path);
         writer.write_record_batch(batch).await?;
         writer.finish().await?;
         Ok(())
@@ -375,10 +378,12 @@ impl InnerBuilder {
 
     #[instrument(level = "debug", skip_all)]
     async fn write_docs(&mut self, store: &dyn IndexStore, docs: Arc<DocSet>) -> Result<()> {
-        log::info!("writing docs of partition {}", self.id);
+        let doc_file_path = doc_file_path(self.id);
+        log::info!("writing docs of partition {}, save to {}", self.id, doc_file_path);
         let batch = docs.to_batch()?;
+        let doc_file_path = doc_file_path(self.id);
         let mut writer = store
-            .new_index_file(&doc_file_path(self.id), batch.schema())
+            .new_index_file(&doc_file_path, batch.schema())
             .await?;
         writer.write_record_batch(batch).await?;
         writer.finish().await?;
