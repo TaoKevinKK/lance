@@ -57,6 +57,10 @@ pub struct InvertedIndexParams {
     /// ascii folding
     #[serde(default = "bool_true")]
     pub(crate) ascii_folding: bool,
+
+    /// whether merge partitions
+    #[serde(default = "bool_true")]
+    pub(crate) enable_merge: bool,
 }
 
 fn bool_true() -> bool {
@@ -80,6 +84,7 @@ impl InvertedIndexParams {
             stem: true,
             remove_stop_words: true,
             ascii_folding: true,
+            enable_merge: true,
         }
     }
 
@@ -122,6 +127,11 @@ impl InvertedIndexParams {
 
     pub fn ascii_folding(mut self, ascii_folding: bool) -> Self {
         self.ascii_folding = ascii_folding;
+        self
+    }
+
+    pub fn enable_merge(mut self, enable_merge: bool) -> Self {
+        self.enable_merge = enable_merge;
         self
     }
 

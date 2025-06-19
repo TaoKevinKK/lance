@@ -237,7 +237,7 @@ impl InvertedIndexBuilder {
                 ),
         )
         .await?;
-        let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20);
+        let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20, self.params.enable_merge);
         let partitions = merger.merge().await?;
         self.write_metadata(dest_store, &partitions).await?;
         Ok(())
