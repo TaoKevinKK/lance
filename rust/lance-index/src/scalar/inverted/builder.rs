@@ -75,6 +75,10 @@ pub struct InvertedIndexBuilder {
     new_partitions: Vec<u64>,
 
     _tmpdir: TempDir,
+    // When merge is enabled, we write the partition to the local store,
+    // and then merge the partitions into the dest store.
+    // When merge is disabled, we write the partition to the dest store directly.
+    // local temp path.
     local_store: Arc<dyn IndexStore>,
     src_store: Arc<dyn IndexStore>,
 }
@@ -499,6 +503,9 @@ impl IndexWorker {
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             ),
         );
+        // If merge is enabled, we write the partition to the local store,
+        // and then merge the partitions into the dest store.
+        // If merge is disabled, we write the partition to the dest store directly.
         builder.write(self.store.as_ref()).await?;
         self.partitions.push(builder.id);
 
