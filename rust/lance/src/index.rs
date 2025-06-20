@@ -157,6 +157,7 @@ pub(crate) async fn remap_index(
 
     match generic.index_type() {
         it if it.is_scalar() => {
+            
             let new_store = LanceIndexStore::from_dataset(dataset, &new_id.to_string());
 
             let scalar_index = dataset
@@ -186,6 +187,7 @@ pub(crate) async fn remap_index(
                             training_request,
                             &new_store,
                             inverted_index.params().clone(),
+                            Some(new_store.index_dir().as_ref()),
                         )
                         .await?;
                     } else {

@@ -88,18 +88,34 @@ impl InvertedIndexBuilder {
         Self::from_existing_index(params, None, Vec::new())
     }
 
+    pub fn new_with_index_store(params: InvertedIndexParams, index_store_dir: &str) -> Self {
+        let index_store = Arc::new(LanceIndexStore::new(
+            ObjectStore::local().into(),
+            Path::from_filesystem_path(index_store_dir).unwrap(),
+            FileMetadataCache::no_cache(),
+        ));
+        log::info!("using existing index store dir: {}, enable merge: {}", index_store_dir, params.enable_merge);
+        Self::from_existing_index(params, Some(index_store), Vec::new())
+    }
+
     pub fn from_existing_index(
         params: InvertedIndexParams,
         store: Option<Arc<dyn IndexStore>>,
         partitions: Vec<u64>,
     ) -> Self {
         let tmpdir = tempdir().unwrap();
-        let local_store = Arc::new(LanceIndexStore::new(
-            ObjectStore::local().into(),
-            Path::from_filesystem_path(tmpdir.path()).unwrap(),
-            FileMetadataCache::no_cache(),
-        ));
-        let src_store = store.unwrap_or_else(|| local_store.clone());
+        
+        // If store is provided, use it as the local store,
+        // otherwise create a temporary directory as the local store.
+        let local_store = store.unwrap_or_else(|| {
+            Arc::new(LanceIndexStore::new(
+                ObjectStore::local().into(),
+                Path::from_filesystem_path(tmpdir.path()).unwrap(),
+                FileMetadataCache::no_cache(),
+            ))
+        });
+        let src_store = local_store.clone();
+        
         Self {
             params,
             partitions,
@@ -241,9 +257,20 @@ impl InvertedIndexBuilder {
                 ),
         )
         .await?;
-        let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20, self.params.enable_merge);
-        let partitions = merger.merge().await?;
-        self.write_metadata(dest_store, &partitions).await?;
+        
+        // Merge partitions if enabled, otherwise use original partitions
+        let final_partitions = if self.params.enable_merge {
+            let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20);
+            let merged_partitions = merger.merge().await?;
+            log::info!("merged partitions: {:?}", merged_partitions);
+            merged_partitions
+        } else {
+            let partition_ids: Vec<u64> = partitions.iter().map(|p| p.id()).collect();
+            log::info!("not merging partitions, using original partition IDs: {:?}", partition_ids);
+            partition_ids
+        };
+        
+        self.write_metadata(dest_store, &final_partitions).await?;
         Ok(())
     }
 }

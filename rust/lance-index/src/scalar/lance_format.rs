@@ -67,6 +67,11 @@ impl LanceIndexStore {
             scheduler,
         }
     }
+
+    /// Get the index directory path
+    pub fn index_dir(&self) -> &Path {
+        &self.index_dir
+    }
 }
 
 #[async_trait]
@@ -227,6 +232,7 @@ impl IndexStore for LanceIndexStore {
     }
 
     async fn open_index_file(&self, name: &str) -> Result<Arc<dyn IndexReader>> {
+        log::debug!("Opening index file name: {}, index_dir: {}", name, self.index_dir.as_ref());
         let path = self.index_dir.child(name);
         let file_scheduler = self
             .scheduler

@@ -61,9 +61,6 @@ pub struct InvertedIndexParams {
     /// whether merge partitions
     #[serde(default = "bool_true")]
     pub(crate) enable_merge: bool,
-
-    /// lance dataset store path.
-    pub(crate) dataset_store_path: Option<String>,
 }
 
 fn bool_true() -> bool {

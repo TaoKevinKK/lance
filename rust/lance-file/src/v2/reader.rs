@@ -838,7 +838,7 @@ impl FileReader {
         should_validate: bool,
     ) -> Result<BoxStream<'static, ReadBatchTask>> {
         debug!(
-            "Reading range {:?} with batch_size {} from file with {} rows and {} columns into schema with {} columns",
+            "Reading range {:?} with batch_size {} from file with {} rows and {} columns into schema with {} columns, func is do_read_range",
             range,
             batch_size,
             num_rows,
@@ -1127,7 +1127,8 @@ impl FileReader {
         projection: ReaderProjection,
         filter: FilterExpression,
     ) -> Result<Pin<Box<dyn RecordBatchStream>>> {
-        let arrow_schema = Arc::new(ArrowSchema::from(projection.schema.as_ref()));
+        debug!("Reading stream projected batch_size: {}, batch_readahead: {}", batch_size, batch_readahead);
+        let arrow_schema = Arc::new(ArrowSchema::from(projection.schema.as_ref()));       
         let tasks_stream = self.read_tasks(params, batch_size, Some(projection), filter)?;
         let batch_stream = tasks_stream
             .map(|task| task.task)
@@ -1226,7 +1227,7 @@ impl FileReader {
         let num_rows = self.num_rows;
 
         debug!(
-            "Reading range {:?} with batch_size {} from file with {} rows and {} columns into schema with {} columns",
+            "Reading range {:?} with batch_size {} from file with {} rows and {} columns into schema with {} columns, func is read_range_blocking",
             range,
             batch_size,
             num_rows,

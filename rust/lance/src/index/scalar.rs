@@ -310,6 +310,7 @@ pub(super) async fn build_scalar_index(
                 training_request,
                 &index_store,
                 InvertedIndexParams::default(),
+                Some(index_store.index_dir().as_ref()),
             )
             .await?;
             Ok(inverted_index_details())
@@ -351,7 +352,7 @@ pub(super) async fn build_inverted_index(
         column: column.to_string(),
     });
     let index_store = LanceIndexStore::from_dataset(dataset, uuid);
-    train_inverted_index(training_request, &index_store, params.clone()).await
+    train_inverted_index(training_request, &index_store, params.clone(), Some(index_store.index_dir().as_ref())).await
 }
 
 pub async fn open_scalar_index(

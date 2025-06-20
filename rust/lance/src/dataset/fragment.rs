@@ -332,6 +332,7 @@ mod v2_adapter {
                 projection.as_ref(),
                 self.field_id_to_column_idx.as_ref(),
             )?;
+            log::debug!("Reading range {:?} with batch_size {}, when create read tasks", range, batch_size);
             Ok(self
                 .reader
                 .read_tasks(
@@ -895,7 +896,8 @@ impl FileFragment {
         if data_file.is_legacy_file() {
             let max_field_id = data_file.fields.iter().max().unwrap();
             if !schema_per_file.fields.is_empty() {
-                let path = self.dataset.data_dir().child(data_file.path.as_str());
+                let data_file_path = data_file.path.as_str();
+                let path = self.dataset.data_dir().child(data_file_path);
                 let field_id_offset = Self::get_field_id_offset(data_file);
                 let reader = FileReader::try_new_with_fragment_id(
                     &self.dataset.object_store,
@@ -907,6 +909,7 @@ impl FileFragment {
                     Some(&self.dataset.session.file_metadata_cache),
                 )
                 .await?;
+                log::debug!("Reading legacy file: {} by fragment id: {}, when create reader", data_file_path, self.id());
                 let initialized_schema = reader.schema().project_by_schema(
                     schema_per_file.as_ref(),
                     OnMissing::Error,
@@ -920,7 +923,8 @@ impl FileFragment {
         } else if schema_per_file.fields.is_empty() {
             Ok(None)
         } else {
-            let path = self.dataset.data_dir().child(data_file.path.as_str());
+            let data_file_path = data_file.path.as_str();
+            let path = self.dataset.data_dir().child(data_file_path);
             let (store_scheduler, reader_priority) =
                 if let Some(scan_scheduler) = read_config.scan_scheduler.as_ref() {
                     (
@@ -953,6 +957,7 @@ impl FileFragment {
                 )
                 .await?,
             );
+            log::debug!("Reading v2 file: {} by file metadata, with fragment id: {}, when create reader", data_file_path, self.id());
             let field_id_to_column_idx = Arc::new(BTreeMap::from_iter(
                 data_file
                     .fields

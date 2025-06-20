@@ -30,7 +30,6 @@ pub struct SizeBasedMerger<'a> {
     target_size: u64,
     builder: InnerBuilder,
     partitions: Vec<u64>,
-    enable_merge: bool,
 }
 
 impl<'a> SizeBasedMerger<'a> {
@@ -42,7 +41,6 @@ impl<'a> SizeBasedMerger<'a> {
         dest_store: &'a dyn IndexStore,
         input: Vec<InvertedPartition>,
         target_size: u64,
-        enable_merge: bool,
     ) -> Self {
         let max_id = input.iter().map(|p| p.id()).max().unwrap_or(0);
         Self {
@@ -51,7 +49,6 @@ impl<'a> SizeBasedMerger<'a> {
             target_size,
             builder: InnerBuilder::new(max_id + 1),
             partitions: Vec::new(),
-            enable_merge,
         }
     }
 
@@ -74,11 +71,10 @@ impl<'a> SizeBasedMerger<'a> {
 
 impl Merger for SizeBasedMerger<'_> {
     async fn merge(&mut self) -> Result<Vec<u64>> {
-        if self.input.len() <= 1 || !self.enable_merge {
-            log::info!("merging {} partitions without merging, enable_merge: {}", self.input.len(), self.enable_merge);
+        if self.input.len() <= 1 {
             for part in self.input.iter() {
                 let posting_path = posting_file_path(part.id());
-                log::info!("copying posting file: {}", posting_path);
+                log::info!("merging copying posting file: {}", posting_path);
                 part.store()
                     .copy_index_file(&token_file_path(part.id()), self.dest_store)
                     .await?;
