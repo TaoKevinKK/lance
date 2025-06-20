@@ -129,7 +129,7 @@ impl InvertedIndex {
     fn to_builder(&self) -> InvertedIndexBuilder {
         if self.is_legacy() {
             // for legacy format, we re-create the index in the new format
-            InvertedIndexBuilder::new(self.params.clone())
+            InvertedIndexBuilder::new(self.params.clone(), None)
         } else {
             InvertedIndexBuilder::from_existing_index(
                 self.params.clone(),

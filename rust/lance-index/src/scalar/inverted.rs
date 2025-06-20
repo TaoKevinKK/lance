@@ -32,6 +32,6 @@ pub async fn train_inverted_index(
     }
     let batch_stream = data_source.scan_unordered_chunks(4096).await?;
     // mapping from item to list of the row ids where it is present.
-    let mut inverted_index = InvertedIndexBuilder::new(params);
+    let mut inverted_index = InvertedIndexBuilder::new(params, index_store_dir);
     inverted_index.update(batch_stream, index_store).await
 }

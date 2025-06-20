@@ -282,6 +282,11 @@ impl<M: ManifestProvider + Send + Sync> FileWriter<M> {
         self.len() == 0
     }
 
+    /// Get the path where this writer is writing to
+    pub fn get_dest_path(&self) -> String {
+        self.object_writer.get_dest_path()
+    }
+
     #[async_recursion]
     async fn write_array(
         object_writer: &mut ObjectWriter,

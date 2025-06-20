@@ -84,18 +84,15 @@ pub struct InvertedIndexBuilder {
 }
 
 impl InvertedIndexBuilder {
-    pub fn new(params: InvertedIndexParams) -> Self {
-        Self::from_existing_index(params, None, Vec::new())
-    }
-
-    pub fn new_with_index_store(params: InvertedIndexParams, index_store_dir: &str) -> Self {
-        let index_store = Arc::new(LanceIndexStore::new(
-            ObjectStore::local().into(),
-            Path::from_filesystem_path(index_store_dir).unwrap(),
-            FileMetadataCache::no_cache(),
-        ));
-        log::info!("using existing index store dir: {}, enable merge: {}", index_store_dir, params.enable_merge);
-        Self::from_existing_index(params, Some(index_store), Vec::new())
+    pub fn new(params: InvertedIndexParams, index_store_dir: Option<&str>) -> Self {
+        let store = index_store_dir.map(|dir| {
+            Arc::new(LanceIndexStore::new(
+                ObjectStore::local().into(),
+                Path::from_filesystem_path(dir).unwrap(),
+                FileMetadataCache::no_cache(),
+            )) as Arc<dyn IndexStore>
+        });
+        Self::from_existing_index(params, store, Vec::new())
     }
 
     pub fn from_existing_index(
@@ -174,6 +171,7 @@ impl InvertedIndexBuilder {
                     worker.process_batch(batch).await?;
                 }
                 let partitions = worker.finish().await?;
+                log::info!("Index worker finished, processed partitions: {:?}", partitions);
                 Result::Ok(partitions)
             });
             index_tasks.push(task);
@@ -266,7 +264,7 @@ impl InvertedIndexBuilder {
             merged_partitions
         } else {
             let partition_ids: Vec<u64> = partitions.iter().map(|p| p.id()).collect();
-            log::info!("not merging partitions, using original partition IDs: {:?}", partition_ids);
+            log::info!("User closed merge partitions, using original partition IDs: {:?}", partition_ids);
             partition_ids
         };
         
@@ -278,7 +276,7 @@ impl InvertedIndexBuilder {
 impl Default for InvertedIndexBuilder {
     fn default() -> Self {
         let params = InvertedIndexParams::default();
-        Self::new(params)
+        Self::new(params, None)
     }
 }
 
@@ -316,10 +314,12 @@ impl InnerBuilder {
     }
 
     pub async fn write(&mut self, store: &dyn IndexStore) -> Result<()> {
+        log::info!("Write partition {} to store posting lists, tokens, docs starting", self.id);
         let docs = Arc::new(std::mem::take(&mut self.docs));
         self.write_posting_lists(store, docs.clone()).await?;
         self.write_tokens(store).await?;
         self.write_docs(store, docs).await?;
+        log::info!("Write partition {} to store posting lists, tokens, docs finished", self.id);
         Ok(())
     }
 
@@ -401,9 +401,9 @@ impl InnerBuilder {
         let mut writer = store
             .new_index_file(&token_file_path, batch.schema())
             .await?;
-        log::info!("writing tokens of partition {}, save to {}", self.id, token_file_path);
         writer.write_record_batch(batch).await?;
         writer.finish().await?;
+        log::info!("Write tokens of partition {}, save to {} finished", self.id, writer.get_dest_path());
         Ok(())
     }
 
@@ -411,12 +411,12 @@ impl InnerBuilder {
     async fn write_docs(&mut self, store: &dyn IndexStore, docs: Arc<DocSet>) -> Result<()> {
         let batch = docs.to_batch()?;
         let doc_file_path = doc_file_path(self.id);
-        log::info!("writing docs of partition {}, save to {}", self.id, doc_file_path);
         let mut writer = store
             .new_index_file(&doc_file_path, batch.schema())
             .await?;
         writer.write_record_batch(batch).await?;
         writer.finish().await?;
+        log::info!("Write docs of partition {}, save to {} finished", self.id, writer.get_dest_path());
         Ok(())
     }
 }

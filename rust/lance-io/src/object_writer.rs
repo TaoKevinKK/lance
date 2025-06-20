@@ -303,6 +303,11 @@ impl ObjectWriter {
         Ok(())
     }
 
+    /// Get the path where this writer is writing to
+    pub fn get_dest_path(&self) -> String {
+        self.path.as_ref().to_string()
+    }
+
     pub async fn shutdown(&mut self) -> Result<WriteResult> {
         AsyncWriteExt::shutdown(self).await.map_err(|e| {
             Error::io(

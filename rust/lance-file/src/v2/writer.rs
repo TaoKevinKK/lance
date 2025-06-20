@@ -194,6 +194,11 @@ impl FileWriter {
         self.options.format_version.unwrap_or_default()
     }
 
+    /// Get the path where this writer is writing to
+    pub fn get_dest_path(&self) -> String {
+        self.writer.get_dest_path()
+    }
+
     async fn write_page(&mut self, encoded_page: EncodedPage) -> Result<()> {
         let buffers = encoded_page.data;
         let mut buffer_offsets = Vec::with_capacity(buffers.len());

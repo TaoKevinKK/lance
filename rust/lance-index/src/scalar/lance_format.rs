@@ -91,6 +91,10 @@ impl<M: ManifestProvider + Send + Sync> IndexWriter for FileWriter<M> {
             .await
             .map(|_| ())
     }
+
+    fn get_dest_path(&self) -> String {
+        lance_file::writer::FileWriter::get_dest_path(self)
+    }
 }
 
 #[async_trait]
@@ -111,6 +115,11 @@ impl IndexWriter for v2::writer::FileWriter {
         });
         Self::finish(self).await.map(|_| ())
     }
+
+    fn get_dest_path(&self) -> String {
+        v2::writer::FileWriter::get_dest_path(self)
+    }
+
 }
 
 #[async_trait]

@@ -73,7 +73,7 @@ benchmarks/sift/sift
 benchmarks/sift/sift.lance
 benchmarks/sift/lance_ivf*.csv
 **/sift.tar.gz
-
+*.csv
 wheelhouse
 
 # pandas testing
