@@ -51,6 +51,7 @@ const TRAINING_UPDATE_FREQ: usize = 1000000;
 pub(crate) struct TrainingRequest {
     dataset: Arc<Dataset>,
     column: String,
+    fragment_ids: Option<Vec<u32>>,
 }
 
 #[async_trait]
@@ -71,8 +72,8 @@ impl TrainingSource for TrainingRequest {
 }
 
 impl TrainingRequest {
-    pub fn new(dataset: Arc<Dataset>, column: String) -> Self {
-        Self { dataset, column }
+    pub fn new(dataset: Arc<Dataset>, column: String, fragment_ids: Option<Vec<u32>>) -> Self {
+        Self { dataset, column, fragment_ids }
     }
 
     async fn scan_chunks(
@@ -256,11 +257,13 @@ pub(super) async fn build_scalar_index(
     dataset: &Dataset,
     column: &str,
     uuid: &str,
+    fragment_ids: Option<Vec<u32>>,
     params: &ScalarIndexParams,
 ) -> Result<prost_types::Any> {
     let training_request = Box::new(TrainingRequest {
         dataset: Arc::new(dataset.clone()),
         column: column.to_string(),
+        fragment_ids,
     });
     let field = dataset.schema().field(column).ok_or(Error::InvalidInput {
         source: format!("No column with name {}", column).into(),
@@ -345,11 +348,13 @@ pub(super) async fn build_inverted_index(
     dataset: &Dataset,
     column: &str,
     uuid: &str,
+    fragment_ids: Option<Vec<u32>>,
     params: &InvertedIndexParams,
 ) -> Result<()> {
     let training_request = Box::new(TrainingRequest {
         dataset: Arc::new(dataset.clone()),
         column: column.to_string(),
+        fragment_ids,
     });
     let index_store = LanceIndexStore::from_dataset(dataset, uuid);
     train_inverted_index(training_request, &index_store, params.clone(), Some(index_store.index_dir().as_ref())).await

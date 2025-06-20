@@ -1620,6 +1620,7 @@ class LanceDataset(pa.dataset.Dataset):
         ],
         name: Optional[str] = None,
         *,
+        fragment_ids: Optional[List[int]] = None,
         replace: bool = True,
         **kwargs,
     ):
@@ -1833,8 +1834,11 @@ class LanceDataset(pa.dataset.Dataset):
             raise TypeError(
                 f"Scalar index column {column} cannot currently be a duration"
             )
-
-        self._ds.create_index([column], index_type, name, replace, None, kwargs)
+        
+        if fragment_ids is not None:
+            self._ds.create_fragment_index([column], index_type, name, replace, None, fragment_ids, kwargs)
+        else:
+            self._ds.create_index([column], index_type, name, replace, None, kwargs)
 
     def create_index(
         self,

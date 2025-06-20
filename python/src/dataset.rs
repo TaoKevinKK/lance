@@ -70,7 +70,7 @@ use lance_index::{
 };
 use lance_io::object_store::ObjectStoreParams;
 use lance_linalg::distance::MetricType;
-use lance_table::format::Fragment;
+use lance_table::format::{Fragment, Index};
 use lance_table::io::commit::CommitHandler;
 
 use crate::error::PythonErrorExt;
@@ -79,7 +79,7 @@ use crate::fragment::FileFragment;
 use crate::scanner::ScanStatistics;
 use crate::schema::LanceSchema;
 use crate::session::Session;
-use crate::utils::PyLance;
+use crate::utils::{export_vec, PyLance};
 use crate::RT;
 use crate::{LanceReader, Scanner};
 
@@ -1286,6 +1286,118 @@ impl Dataset {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (columns, index_type, name = None, replace = None, storage_options = None, fragment_ids = None, kwargs = None))]
+    fn create_fragment_index(
+        &mut self,
+        columns: Vec<PyBackedStr>,
+        index_type: &str,
+        name: Option<String>,
+        replace: Option<bool>,
+        storage_options: Option<HashMap<String, String>>,
+        fragment_ids: Option<Vec<u32>>,
+        kwargs: Option<&Bound<PyDict>>,
+    ) -> PyResult<PyLance<Index>> {
+        let columns: Vec<&str> = columns.iter().map(|s| &**s).collect();
+        let index_type = index_type.to_uppercase();
+        let idx_type = match index_type.as_str() {
+            "BTREE" => IndexType::Scalar,
+            "BITMAP" => IndexType::Bitmap,
+            "NGRAM" => IndexType::NGram,
+            "LABEL_LIST" => IndexType::LabelList,
+            "INVERTED" | "FTS" => IndexType::Inverted,
+            "IVF_FLAT" | "IVF_PQ" | "IVF_HNSW_PQ" | "IVF_HNSW_SQ" => IndexType::Vector,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "Index type '{index_type}' is not supported."
+                )))
+            }
+        };
+
+        log::info!("[DistributedIndex] Creating fragment index: type={}", index_type);
+        let params: Box<dyn IndexParams> = match index_type.as_str() {
+            "BTREE" => Box::<ScalarIndexParams>::default(),
+            "BITMAP" => Box::new(ScalarIndexParams {
+                // Temporary workaround until we add support for auto-detection of scalar index type
+                force_index_type: Some(ScalarIndexType::Bitmap),
+            }),
+            "NGRAM" => Box::new(ScalarIndexParams {
+                force_index_type: Some(ScalarIndexType::NGram),
+            }),
+            "LABEL_LIST" => Box::new(ScalarIndexParams {
+                force_index_type: Some(ScalarIndexType::LabelList),
+            }),
+            "INVERTED" | "FTS" => {
+                let mut params = InvertedIndexParams::default();
+                if let Some(kwargs) = kwargs {
+                    if let Some(with_position) = kwargs.get_item("with_position")? {
+                        params = params.with_position(with_position.extract()?);
+                    }
+                    if let Some(base_tokenizer) = kwargs.get_item("base_tokenizer")? {
+                        params = params.base_tokenizer(base_tokenizer.extract()?);
+                    }
+                    if let Some(language) = kwargs.get_item("language")? {
+                        let language: PyBackedStr =
+                            language.downcast::<PyString>()?.clone().try_into()?;
+                        params = params.language(&language).map_err(|e| {
+                            PyValueError::new_err(format!(
+                                "can't set tokenizer language to {}: {:?}",
+                                language, e
+                            ))
+                        })?;
+                    }
+                    if let Some(max_token_length) = kwargs.get_item("max_token_length")? {
+                        params = params.max_token_length(max_token_length.extract()?);
+                    }
+                    if let Some(lower_case) = kwargs.get_item("lower_case")? {
+                        params = params.lower_case(lower_case.extract()?);
+                    }
+                    if let Some(stem) = kwargs.get_item("stem")? {
+                        params = params.stem(stem.extract()?);
+                    }
+                    if let Some(remove_stop_words) = kwargs.get_item("remove_stop_words")? {
+                        params = params.remove_stop_words(remove_stop_words.extract()?);
+                    }
+                    if let Some(ascii_folding) = kwargs.get_item("ascii_folding")? {
+                        params = params.ascii_folding(ascii_folding.extract()?);
+                    }
+                    if let Some(enable_merge) = kwargs.get_item("enable_merge")? {
+                        params = params.enable_merge(enable_merge.extract()?);
+                    }
+                }
+                Box::new(params)
+            }
+            _ => {
+                let column_type = match self.ds.schema().field(columns[0]) {
+                    Some(f) => f.data_type().clone(),
+                    None => {
+                        return Err(PyValueError::new_err("Column not found in dataset schema."))
+                    }
+                };
+                prepare_vector_index_params(&index_type, &column_type, storage_options, kwargs)?
+            }
+        };
+
+        let replace = replace.unwrap_or(true);
+
+        let mut new_self = self.ds.as_ref().clone();
+        let res = RT
+            .block_on(
+                None,
+                new_self.create_fragment_index(
+                    &columns,
+                    idx_type,
+                    name,
+                    params.as_ref(),
+                    replace,
+                    fragment_ids,
+                ),
+            )?
+            .map_err(|err| PyIOError::new_err(err.to_string()))?;
+        self.ds = Arc::new(new_self);
+        Ok(PyLance(res))
+    }
+
     #[pyo3(signature = (columns, index_type, name = None, replace = None, storage_options = None, kwargs = None))]
     fn create_index(
         &mut self,
@@ -1396,6 +1508,33 @@ impl Dataset {
         self.ds = Arc::new(new_self);
 
         Ok(())
+    }
+
+    fn get_unindexed_fragments(&self, name: &str) -> PyResult<PyObject> {
+        let result = RT
+            .block_on(None, self.ds.unindexed_fragments(name))?
+            .map_err(|err| PyIOError::new_err(err.to_string()))?;
+
+        Python::with_gil(|py| {
+            let py_vec = export_vec(py, &result)?;
+            PyList::new(py, py_vec).map(|list| list.into())
+        })
+    }
+
+    fn get_indexed_fragments(&self, name: &str) -> PyResult<PyObject> {
+        let result = RT
+            .block_on(None, self.ds.indexed_fragments(name))?
+            .map_err(|err| PyIOError::new_err(err.to_string()))?;
+        Python::with_gil(|py| {
+            let result = result
+                .iter()
+                .map(|vec| {
+                    let py_vec = export_vec(py, vec)?;
+                    PyList::new(py, py_vec).map(|list| list.into())
+                })
+                .collect::<Result<Vec<PyObject>, _>>()?;
+            PyList::new(py, result).map(|list| list.into())
+        })
     }
 
     fn prewarm_index(&self, name: &str) -> PyResult<()> {
