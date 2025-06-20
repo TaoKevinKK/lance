@@ -47,13 +47,14 @@ impl<'py> IntoPyObject<'py> for PyLance<&DataReplacementGroup> {
     }
 }
 
+// 对应python的class IndexInfo
 impl FromPyObject<'_> for PyLance<Index> {
     fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
         let uuid = ob.get_item("uuid")?.to_string();
         let name = ob.get_item("name")?.extract()?;
         let fields = ob.get_item("fields")?.extract()?;
-        let dataset_version = ob.get_item("version")?.extract()?;
-        
+        let dataset_version = ob.get_item("dataset_version")?.extract()?;
+        let index_version = ob.get_item("index_version")?.extract()?;
 
         let fragment_ids = ob.get_item("fragment_ids")?;
         let fragment_ids = if PySet::type_check(&fragment_ids) {
@@ -81,6 +82,7 @@ impl FromPyObject<'_> for PyLance<Index> {
             // TODO: we should use lance::dataset::Dataset::commit_existing_index once
             // we have a way to determine index details from an existing index.
             index_details: None,
+            index_version,
         }))
     }
 }
@@ -95,6 +97,7 @@ impl<'py> IntoPyObject<'py> for PyLance<&Index> {
         let name = self.0.name.clone().into_pyobject(py)?;
         let fields = export_vec(py, &self.0.fields)?;
         let dataset_version = self.0.dataset_version.into_pyobject(py)?;
+        let index_version = self.0.index_version.into_pyobject(py)?;
         let fragment_ids = match &self.0.fragment_bitmap {
             Some(bitmap) => bitmap.into_iter().collect::<Vec<_>>().into_pyobject(py)?,
             None => PyNone::get(py).to_owned().into_any(),
@@ -105,6 +108,7 @@ impl<'py> IntoPyObject<'py> for PyLance<&Index> {
         kwargs.set_item("name", name).unwrap();
         kwargs.set_item("fields", fields).unwrap();
         kwargs.set_item("version", dataset_version).unwrap();
+        kwargs.set_item("index_version", index_version).unwrap();
         kwargs.set_item("fragment_ids", fragment_ids).unwrap();
         Ok(kwargs)
     }

@@ -35,6 +35,7 @@ from ..dataset import (
     AlterColumn,
     ExecuteResult,
     Index,
+    IndexInfo,
     LanceOperation,
     Tag,
     Transaction,
@@ -275,7 +276,7 @@ class _Dataset:
         storage_options: Optional[Dict[str, str]] = None,
         fragment_ids: Optional[List[int]] = None,
         kwargs: Optional[Dict[str, Any]] = None,
-    ): ...
+    ) -> IndexInfo: ...
     def get_unindexed_fragments(self, name: str) -> List[FragmentMetadata]: ...
     def get_indexed_fragments(self, name: str) -> List[List[FragmentMetadata]]: ...
     def drop_index(self, name: str): ...

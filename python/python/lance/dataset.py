@@ -1623,7 +1623,7 @@ class LanceDataset(pa.dataset.Dataset):
         fragment_ids: Optional[List[int]] = None,
         replace: bool = True,
         **kwargs,
-    ):
+    ) -> IndexInfo | LanceDataset:
         """Create a scalar index on a column.
 
         Scalar indices, like vector indices, can be used to speed up scans.  A scalar
@@ -2399,6 +2399,18 @@ class LanceDataset(pa.dataset.Dataset):
             The name of the index to prewarm.
         """
         return self._ds.prewarm_index(name)
+    
+    def get_unindexed_fragments(self, name: str) -> List[FragmentMetadata]:
+        """
+        Return the fragments that are not covered by any of the deltas of the index.
+        """
+        return self._ds.unindexed_fragments(name)
+
+    def get_indexed_fragments(self, name: str) -> List[List[FragmentMetadata]]:
+        """
+        Return the fragments that are covered by each of the deltas of the index.
+        """
+        return self._ds.indexed_fragments(name)
 
     def session(self) -> Session:
         """
@@ -2762,6 +2774,13 @@ class AutoCleanupConfig(TypedDict):
     interval: int
     older_than_seconds: int
 
+class IndexInfo(TypedDict):
+    name: str
+    uuid: str
+    fields: List[int]
+    dataset_version: int
+    fragment_ids: Set[int]
+    index_version: int
 
 # LanceOperation is a namespace for operations that can be applied to a dataset.
 class LanceOperation:
@@ -3104,13 +3123,8 @@ class LanceOperation:
         """
         Operation that creates an index on the dataset.
         """
-
-        uuid: str
-        name: str
-        fields: List[int]
-        dataset_version: int
-        fragment_ids: Set[int]
-        index_version: int
+        new_indices: List[IndexInfo]
+        removed_indices: List[IndexInfo]
 
     @dataclass
     class DataReplacementGroup:
