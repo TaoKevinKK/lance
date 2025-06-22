@@ -11,9 +11,10 @@ import pandas as pd
 import pyarrow as pa
 
 df = pd.read_csv("frankenstein_random_fragments.csv")
-result_path = "/Users/laifu/dataset/test.lance"
+result_path = "/tmp/lance/dataset/test.lance"
 shutil.rmtree(result_path, ignore_errors=True)
 
 ds = lance.write_dataset(df, result_path)
 frags = ds.get_fragments()
-ds.create_scalar_index("text", index_type="INVERTED", with_position=False)
+print(frags)
+#ds.create_scalar_index("text", index_type="INVERTED", with_position=False)
