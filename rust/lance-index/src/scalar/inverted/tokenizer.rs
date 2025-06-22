@@ -57,10 +57,6 @@ pub struct InvertedIndexParams {
     /// ascii folding
     #[serde(default = "bool_true")]
     pub(crate) ascii_folding: bool,
-
-    /// whether merge partitions
-    #[serde(default = "bool_true")]
-    pub(crate) enable_merge: bool,
 }
 
 fn bool_true() -> bool {
@@ -84,7 +80,6 @@ impl InvertedIndexParams {
             stem: true,
             remove_stop_words: true,
             ascii_folding: true,
-            enable_merge: true,
         }
     }
 
@@ -130,10 +125,7 @@ impl InvertedIndexParams {
         self
     }
 
-    pub fn enable_merge(mut self, enable_merge: bool) -> Self {
-        self.enable_merge = enable_merge;
-        self
-    }
+
 
     pub fn build(&self) -> Result<tantivy::tokenizer::TextAnalyzer> {
         let mut builder = build_base_tokenizer_builder(&self.base_tokenizer)?;

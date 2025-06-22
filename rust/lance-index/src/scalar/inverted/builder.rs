@@ -75,24 +75,13 @@ pub struct InvertedIndexBuilder {
     new_partitions: Vec<u64>,
 
     _tmpdir: TempDir,
-    // When merge is enabled, we write the partition to the local store,
-    // and then merge the partitions into the dest store.
-    // When merge is disabled, we write the partition to the dest store directly.
-    // local temp path.
     local_store: Arc<dyn IndexStore>,
     src_store: Arc<dyn IndexStore>,
 }
 
 impl InvertedIndexBuilder {
-    pub fn new(params: InvertedIndexParams, index_store_dir: Option<&str>) -> Self {
-        let store = index_store_dir.map(|dir| {
-            Arc::new(LanceIndexStore::new(
-                ObjectStore::local().into(),
-                Path::from_filesystem_path(dir).unwrap(),
-                FileMetadataCache::no_cache(),
-            )) as Arc<dyn IndexStore>
-        });
-        Self::from_existing_index(params, store, Vec::new())
+    pub fn new(params: InvertedIndexParams) -> Self {
+        Self::from_existing_index(params, None, Vec::new())
     }
 
     pub fn from_existing_index(
@@ -101,18 +90,12 @@ impl InvertedIndexBuilder {
         partitions: Vec<u64>,
     ) -> Self {
         let tmpdir = tempdir().unwrap();
-        
-        // If store is provided, use it as the local store,
-        // otherwise create a temporary directory as the local store.
-        let local_store = store.unwrap_or_else(|| {
-            Arc::new(LanceIndexStore::new(
-                ObjectStore::local().into(),
-                Path::from_filesystem_path(tmpdir.path()).unwrap(),
-                FileMetadataCache::no_cache(),
-            ))
-        });
-        let src_store = local_store.clone();
-        
+        let local_store = Arc::new(LanceIndexStore::new(
+            ObjectStore::local().into(),
+            Path::from_filesystem_path(tmpdir.path()).unwrap(),
+            Arc::new(LanceCache::no_cache()),
+        ));
+        let src_store = store.unwrap_or_else(|| local_store.clone());
         Self {
             params,
             partitions,
@@ -244,31 +227,19 @@ impl InvertedIndexBuilder {
     }
 
     async fn write(&self, dest_store: &dyn IndexStore) -> Result<()> {
-        let partitions = futures::future::try_join_all(
-            self.partitions
-                .iter()
-                .map(|part| InvertedPartition::load(self.src_store.clone(), *part))
-                .chain(
-                    self.new_partitions
-                        .iter()
-                        .map(|part| InvertedPartition::load(self.local_store.clone(), *part)),
-                ),
-        )
-        .await?;
-        
-        // Merge partitions if enabled, otherwise use original partitions
-        let final_partitions = if self.params.enable_merge {
-            let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20);
-            let merged_partitions = merger.merge().await?;
-            log::info!("merged partitions: {:?}", merged_partitions);
-            merged_partitions
-        } else {
-            let partition_ids: Vec<u64> = partitions.iter().map(|p| p.id()).collect();
-            log::info!("User closed merge partitions, using original partition IDs: {:?}", partition_ids);
-            partition_ids
-        };
-        
-        self.write_metadata(dest_store, &final_partitions).await?;
+        let partitions =
+            futures::future::try_join_all(
+                self.partitions
+                    .iter()
+                    .map(|part| InvertedPartition::load(self.src_store.clone(), *part, None))
+                    .chain(self.new_partitions.iter().map(|part| {
+                        InvertedPartition::load(self.local_store.clone(), *part, None)
+                    })),
+            )
+            .await?;
+        let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20);
+        let partitions = merger.merge().await?;
+        self.write_metadata(dest_store, &partitions).await?;
         Ok(())
     }
 }
@@ -276,7 +247,7 @@ impl InvertedIndexBuilder {
 impl Default for InvertedIndexBuilder {
     fn default() -> Self {
         let params = InvertedIndexParams::default();
-        Self::new(params, None)
+        Self::new(params)
     }
 }
 
@@ -529,9 +500,6 @@ impl IndexWorker {
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             ),
         );
-        // If merge is enabled, we write the partition to the local store,
-        // and then merge the partitions into the dest store.
-        // If merge is disabled, we write the partition to the dest store directly.
         builder.write(self.store.as_ref()).await?;
         self.partitions.push(builder.id);
 

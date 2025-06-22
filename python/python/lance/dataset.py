@@ -1730,12 +1730,6 @@ class LanceDataset(pa.dataset.Dataset):
             This is for the ``INVERTED`` index. If True, the index will convert
             non-ascii characters to ascii characters if possible.
             This would remove accents like "é" -> "e".
-        enable_merge: bool, default True
-            This is for the ``INVERTED`` index. If True, the index will merge
-            partitions after building. This will significantly reduce the index size.
-            It won't impact the performance of non-phrase queries even if it is set to
-            True.
-
         Examples
         --------
 

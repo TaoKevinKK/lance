@@ -1361,9 +1361,6 @@ impl Dataset {
                     if let Some(ascii_folding) = kwargs.get_item("ascii_folding")? {
                         params = params.ascii_folding(ascii_folding.extract()?);
                     }
-                    if let Some(enable_merge) = kwargs.get_item("enable_merge")? {
-                        params = params.enable_merge(enable_merge.extract()?);
-                    }
                 }
                 Box::new(params)
             }
@@ -1470,9 +1467,6 @@ impl Dataset {
                     }
                     if let Some(ascii_folding) = kwargs.get_item("ascii_folding")? {
                         params = params.ascii_folding(ascii_folding.extract()?);
-                    }
-                    if let Some(enable_merge) = kwargs.get_item("enable_merge")? {
-                        params = params.enable_merge(enable_merge.extract()?);
                     }
                 }
                 Box::new(params)

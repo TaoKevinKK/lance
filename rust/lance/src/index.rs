@@ -187,8 +187,7 @@ pub(crate) async fn remap_index(
                         train_inverted_index(
                             training_request,
                             &new_store,
-                            inverted_index.params().clone(),
-                            Some(new_store.index_dir().as_ref()),
+                            inverted_index.params().clone()
                         )
                         .await?;
                     } else {

@@ -16,4 +16,4 @@ shutil.rmtree(result_path, ignore_errors=True)
 
 ds = lance.write_dataset(df, result_path)
 frags = ds.get_fragments()
-ds.create_scalar_index("text", index_type="INVERTED", with_position=False, enable_merge=False)
+ds.create_scalar_index("text", index_type="INVERTED", with_position=False)
