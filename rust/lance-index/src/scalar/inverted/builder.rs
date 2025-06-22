@@ -93,7 +93,7 @@ impl InvertedIndexBuilder {
         let local_store = Arc::new(LanceIndexStore::new(
             ObjectStore::local().into(),
             Path::from_filesystem_path(tmpdir.path()).unwrap(),
-            Arc::new(LanceCache::no_cache()),
+            FileMetadataCache::no_cache(),
         ));
         let src_store = store.unwrap_or_else(|| local_store.clone());
         Self {
@@ -227,16 +227,17 @@ impl InvertedIndexBuilder {
     }
 
     async fn write(&self, dest_store: &dyn IndexStore) -> Result<()> {
-        let partitions =
-            futures::future::try_join_all(
-                self.partitions
-                    .iter()
-                    .map(|part| InvertedPartition::load(self.src_store.clone(), *part, None))
-                    .chain(self.new_partitions.iter().map(|part| {
-                        InvertedPartition::load(self.local_store.clone(), *part, None)
-                    })),
-            )
-            .await?;
+        let partitions = futures::future::try_join_all(
+            self.partitions
+                .iter()
+                .map(|part| InvertedPartition::load(self.src_store.clone(), *part))
+                .chain(
+                    self.new_partitions
+                        .iter()
+                        .map(|part| InvertedPartition::load(self.local_store.clone(), *part)),
+                ),
+        )
+        .await?;
         let mut merger = SizeBasedMerger::new(dest_store, partitions, *LANCE_FTS_TARGET_SIZE << 20);
         let partitions = merger.merge().await?;
         self.write_metadata(dest_store, &partitions).await?;
