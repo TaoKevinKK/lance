@@ -83,10 +83,8 @@ impl TrainingRequest {
         chunk_size: u32,
         sort: bool,
     ) -> Result<SendableRecordBatchStream> {
-        let num_rows = self.dataset.count_all_rows().await?;
-
         let mut scan = self.dataset.scan();
-        if let Some(ref fragment_ids) = self.fragment_ids {
+        let num_rows = if let Some(ref fragment_ids) = self.fragment_ids {
             let fragment_ids = fragment_ids.clone().into_iter().dedup().collect_vec();
             let frags = self.dataset.get_frags_from_ordered_ids(&fragment_ids);
             let frags: Result<Vec<_>> = fragment_ids
@@ -102,8 +100,14 @@ impl TrainingRequest {
                     Ok(frag.metadata().clone())
                 })
                 .collect();
-            scan.with_fragments(frags?);
-        }
+            let frags = frags?;
+            // Calculate total rows in selected fragments
+            let fragment_rows: u64 = frags.iter().map(|frag| frag.num_rows().unwrap_or(0) as u64).sum();
+            scan.with_fragments(frags);
+            fragment_rows
+        } else {
+            self.dataset.count_all_rows().await? as u64
+        };
 
         let column_field =
             self.dataset
@@ -149,7 +153,19 @@ impl TrainingRequest {
             "Starting index training job with id {} on column {}",
             training_uuid, self.column
         );
-        info!("Training index (job_id={}): 0/{}", training_uuid, num_rows);
+
+        let all_fragments_size = self.dataset.fragments().len();
+        let all_num_rows = self.dataset.count_all_rows().await?;
+
+        if let Some(ref fragment_ids) = self.fragment_ids {
+            let selected_fragments_size = fragment_ids.len();
+            info!(
+                "Training index (job_id={}) on {} selected fragments out of {} total fragments: {:?}",
+                training_uuid,
+                selected_fragments_size, all_fragments_size, fragment_ids
+            );
+        }
+        info!("Training index (job_id={}): 0/{}, all data rows: {}", training_uuid, num_rows, all_num_rows);
         let batches = batches.map_ok(move |batch| {
             rows_processed += batch.num_rows();
             if rows_processed >= next_update {

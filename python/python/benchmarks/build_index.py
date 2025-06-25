@@ -1,8 +1,6 @@
 import os
 os.environ['LANCE_LOG']='DEBUG'
-os.environ['LANCE_FTS_NUM_SHARDS']='3'
-os.environ['LANCE_FTS_PARTITION_SIZE']='5'
-os.environ['LANCE_FTS_TARGET_SIZE']='10'
+os.environ['LANCE_FTS_NUM_SHARDS']='1'
 import shutil
 
 import lance
@@ -16,5 +14,4 @@ shutil.rmtree(result_path, ignore_errors=True)
 
 ds = lance.write_dataset(df, result_path)
 frags = ds.get_fragments()
-print(frags)
-#ds.create_scalar_index("text", index_type="INVERTED", with_position=False)
+ds.create_scalar_index("text", index_type="INVERTED", with_position=False, fragment_ids=[0, 1])
