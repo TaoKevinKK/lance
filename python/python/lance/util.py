@@ -31,19 +31,16 @@ def _normalize_metric_type(metric_type: str) -> MetricType:
 def sanitize_ts(ts: "ts_types") -> datetime:
     """Returns a python datetime object from various timestamp input types."""
     if _check_for_pandas(ts) and isinstance(ts, str):
-        result = pd.to_datetime(ts).to_pydatetime()
-        return result
+        return pd.to_datetime(ts).to_pydatetime()
     elif isinstance(ts, str):
         try:
-            result = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
-            return result
+            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             raise ValueError(
                 f"Failed to parse timestamp string {ts}. Try installing Pandas."
             )
     elif _check_for_pandas(ts) and hasattr(ts, 'to_pydatetime'):
-        result = ts.to_pydatetime()  # type: ignore[attr-defined]
-        return result
+        return ts.to_pydatetime()  # type: ignore[attr-defined]
     elif isinstance(ts, datetime):
         return ts
     else:
