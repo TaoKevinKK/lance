@@ -51,7 +51,7 @@ class BlobColumn:
 
 class BlobFile(io.RawIOBase):
     """Represents a blob in a Lance dataset as a file-like object."""
-
+    # 继承io.RawIOBase
     def __init__(self, inner: LanceBlobFile):
         """
         Internal only:  To obtain a BlobFile use

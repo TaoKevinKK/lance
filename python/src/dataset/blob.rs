@@ -27,6 +27,8 @@ use crate::{error::PythonErrorExt, RT};
 
 #[pyclass]
 pub struct LanceBlobFile {
+    // Arc修饰的InnerBlobFile，用于多线程安全访问
+    // 允许多个线程共享同一个InnerBlobFile实例，生命周期自动管理
     inner: Arc<InnerBlobFile>,
 }
 
